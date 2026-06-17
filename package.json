@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "description": "Fill any web form with realistic, professional test data in a single click.",
+  "license": "MIT",
   "scripts": {
     "dev": "vite build --watch",
     "build": "tsc --noEmit && vite build",

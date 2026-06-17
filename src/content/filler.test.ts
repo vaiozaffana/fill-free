@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { DATA_POOLS } from './fillLogic';
 
 /**
  * Integration test for the DOM-filling routine.
@@ -11,37 +12,46 @@ async function runFiller(): Promise<void> {
   await import('./filler');
 }
 
+function val(id: string): string {
+  return (document.getElementById(id) as HTMLInputElement).value;
+}
+
 describe('filler.ts DOM filling', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
   });
 
-  it('fills value-based inputs with the documented dummy data', async () => {
+  it('fills fields with contextually-detected professional data', async () => {
     document.body.innerHTML = `
-      <input id="t" type="text" />
-      <input id="p" type="password" />
-      <input id="n" type="number" />
-      <input id="e" type="email" />
-      <input id="u" type="url" />
-      <input id="d" type="date" />
-      <input id="tm" type="time" />
-      <input id="dl" type="datetime-local" />
-      <input id="c" type="color" />
+      <input id="name" name="full_name" type="text" />
+      <input id="email" type="email" />
+      <input id="phone" type="tel" />
+      <input id="company" name="company" type="text" />
+      <input id="city" name="city" type="text" />
     `;
     await runFiller();
 
-    expect((document.getElementById('t') as HTMLInputElement).value).toBe('John Doe');
-    expect((document.getElementById('p') as HTMLInputElement).value).toBe('P@ssw0rd123');
-    expect((document.getElementById('n') as HTMLInputElement).value).toBe('42');
-    expect((document.getElementById('e') as HTMLInputElement).value).toBe('test@example.com');
-    expect((document.getElementById('u') as HTMLInputElement).value).toBe('https://example.com');
-    expect((document.getElementById('d') as HTMLInputElement).value).toBe('2000-01-01');
-    expect((document.getElementById('tm') as HTMLInputElement).value).toBe('09:00');
-    expect((document.getElementById('dl') as HTMLInputElement).value).toBe('2000-01-01T09:00');
-    expect((document.getElementById('c') as HTMLInputElement).value).toBe('#ff0000');
+    expect(DATA_POOLS.fullName).toContain(val('name'));
+    expect(DATA_POOLS.email).toContain(val('email'));
+    expect(DATA_POOLS.phone).toContain(val('phone'));
+    expect(DATA_POOLS.company).toContain(val('company'));
+    expect(DATA_POOLS.city).toContain(val('city'));
   });
 
-  it('checks checkboxes and fills textareas', async () => {
+  it('gives different values to multiple fields of the same kind', async () => {
+    document.body.innerHTML = `
+      <input id="fn1" autocomplete="given-name" type="text" />
+      <input id="fn2" autocomplete="given-name" type="text" />
+      <input id="fn3" autocomplete="given-name" type="text" />
+    `;
+    await runFiller();
+
+    const values = [val('fn1'), val('fn2'), val('fn3')];
+    expect(new Set(values).size).toBe(3); // all distinct
+    expect(values.every((v) => DATA_POOLS.firstName.includes(v))).toBe(true);
+  });
+
+  it('checks checkboxes and fills textareas with paragraph text', async () => {
     document.body.innerHTML = `
       <input id="cb" type="checkbox" />
       <textarea id="ta"></textarea>
@@ -49,8 +59,8 @@ describe('filler.ts DOM filling', () => {
     await runFiller();
 
     expect((document.getElementById('cb') as HTMLInputElement).checked).toBe(true);
-    expect((document.getElementById('ta') as HTMLTextAreaElement).value).toBe(
-      'This is a dummy text for testing purposes.',
+    expect(DATA_POOLS.paragraph).toContain(
+      (document.getElementById('ta') as HTMLTextAreaElement).value,
     );
   });
 
@@ -71,14 +81,8 @@ describe('filler.ts DOM filling', () => {
 
   it('selects index 1 of a select when available, else index 0', async () => {
     document.body.innerHTML = `
-      <select id="multi">
-        <option>Zero</option>
-        <option>One</option>
-        <option>Two</option>
-      </select>
-      <select id="single">
-        <option>Only</option>
-      </select>
+      <select id="multi"><option>Zero</option><option>One</option><option>Two</option></select>
+      <select id="single"><option>Only</option></select>
     `;
     await runFiller();
 
@@ -86,15 +90,15 @@ describe('filler.ts DOM filling', () => {
     expect((document.getElementById('single') as HTMLSelectElement).selectedIndex).toBe(0);
   });
 
-  it('fills a range input with its midpoint (default 50)', async () => {
+  it('fills a range input with its midpoint', async () => {
     document.body.innerHTML = `
       <input id="r" type="range" />
       <input id="rb" type="range" min="0" max="10" />
     `;
     await runFiller();
 
-    expect((document.getElementById('r') as HTMLInputElement).value).toBe('50');
-    expect((document.getElementById('rb') as HTMLInputElement).value).toBe('5');
+    expect(val('r')).toBe('50');
+    expect(val('rb')).toBe('5');
   });
 
   it('skips file and hidden inputs and never submits', async () => {
@@ -102,7 +106,7 @@ describe('filler.ts DOM filling', () => {
       <form id="f">
         <input id="file" type="file" />
         <input id="hidden" type="hidden" value="orig" />
-        <input id="text" type="text" />
+        <input id="text" name="first_name" type="text" />
       </form>
     `;
     const form = document.getElementById('f') as HTMLFormElement;
@@ -111,14 +115,44 @@ describe('filler.ts DOM filling', () => {
 
     await runFiller();
 
-    expect((document.getElementById('file') as HTMLInputElement).value).toBe('');
-    expect((document.getElementById('hidden') as HTMLInputElement).value).toBe('orig');
-    expect((document.getElementById('text') as HTMLInputElement).value).toBe('John Doe');
+    expect(val('file')).toBe('');
+    expect(val('hidden')).toBe('orig');
+    expect(val('text')).not.toBe('');
     expect(submitSpy).not.toHaveBeenCalled();
   });
 
+  it('does not fill readonly, disabled, ARIA, or opt-out fields', async () => {
+    document.body.innerHTML = `
+      <input id="ro" type="text" name="first_name" readonly />
+      <input id="dis" type="text" name="last_name" disabled />
+      <input id="ariaro" type="text" name="email" aria-readonly="true" />
+      <input id="optout" type="text" name="company" data-autofill="off" />
+      <input id="ok" type="text" name="city" />
+    `;
+    await runFiller();
+
+    expect(val('ro')).toBe('');
+    expect(val('dis')).toBe('');
+    expect(val('ariaro')).toBe('');
+    expect(val('optout')).toBe('');
+    expect(val('ok')).not.toBe(''); // control still fills
+  });
+
+  it('does not overwrite auto-generated/system fields', async () => {
+    document.body.innerHTML = `
+      <input id="csrf" type="text" name="csrf_token" value="abc123" />
+      <input id="captcha" type="text" id-attr="x" name="g-recaptcha-response" value="tok" />
+      <input id="normal" type="text" name="username" />
+    `;
+    await runFiller();
+
+    expect(val('csrf')).toBe('abc123');
+    expect(val('captcha')).toBe('tok');
+    expect(val('normal')).not.toBe('');
+  });
+
   it('dispatches input and change events after filling', async () => {
-    document.body.innerHTML = `<input id="t" type="text" />`;
+    document.body.innerHTML = `<input id="t" type="text" name="first_name" />`;
     const el = document.getElementById('t') as HTMLInputElement;
     const inputSpy = vi.fn();
     const changeSpy = vi.fn();
