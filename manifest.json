@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Auto Fill Form",
+  "version": "1.0.0",
+  "description": "Fills form fields with dummy data for testing.",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": "icons/icon.png"
+  },
+  "content_scripts": []
+}
