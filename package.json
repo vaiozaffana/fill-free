@@ -1,23 +1,17 @@
 {
-  "name": "auto-fill-extension",
-  "version": "1.0.0",
+  "name": "fill-free",
+  "version": "0.2.0",
   "private": true,
-  "type": "module",
-  "description": "Fill any web form with realistic, professional test data in a single click.",
+  "description": "Auto Fill Form — browser extension + Playwright companion monorepo.",
   "license": "MIT",
+  "workspaces": [
+    "auto-fill-extension",
+    "playwright-app"
+  ],
   "scripts": {
-    "dev": "vite build --watch",
-    "build": "tsc --noEmit && vite build",
-    "test": "vitest run",
-    "test:watch": "vitest"
-  },
-  "devDependencies": {
-    "@crxjs/vite-plugin": "^2.0.0",
-    "@types/chrome": "^0.0.268",
-    "@types/node": "^24.13.2",
-    "jsdom": "^25.0.0",
-    "typescript": "^6.0.3",
-    "vite": "^8.0.16",
-    "vitest": "^4.1.0"
+    "build": "npm run build --workspace auto-fill-extension",
+    "build:all": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspace auto-fill-extension",
+    "start:playwright": "npm start --workspace auto-fill-playwright"
   }
 }

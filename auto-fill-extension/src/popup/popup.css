@@ -1,0 +1,116 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
+.app {
+  width: 320px;
+  padding: 14px;
+}
+
+.app-title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Mode toggle */
+.mode-toggle {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 8px 0;
+  font-size: 13px;
+  font-family: inherit;
+  color: #333;
+  background: #f0f0f0;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mode-btn.active {
+  color: #fff;
+  background: #4f6ef6;
+  border-color: #4f6ef6;
+}
+
+/* File uploader */
+.file-uploader {
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.file-name {
+  display: block;
+  margin-top: 6px;
+  color: #666;
+  word-break: break-all;
+}
+
+/* Mapping preview */
+.mapping-wrap {
+  margin-bottom: 12px;
+}
+
+.mapping-wrap.scroll {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.mapping-table {
+  width: 100%;
+  font-size: 12px;
+  border-collapse: collapse;
+}
+
+.mapping-table th,
+.mapping-table td {
+  padding: 4px 6px;
+  border: 1px solid #e0e0e0;
+  text-align: left;
+  word-break: break-word;
+}
+
+.mapping-table th {
+  background: #f7f7f7;
+  font-weight: 600;
+}
+
+.mapping-empty {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #c62828;
+}
+
+/* Fill button */
+.fill-btn {
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #fff;
+  background: #4f6ef6;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.fill-btn:hover {
+  background: #3b56d4;
+}
+
+/* Status badge */
+.status-badge {
+  margin: 10px 0 0;
+  font-size: 12px;
+  min-height: 1em;
+}

@@ -2,14 +2,16 @@
 
 # 🪄 Auto Fill Form
 
-**Fill any web form with realistic, professional test data in a single click.**
+**Fill any web form with realistic test data — or your own file — in a single click.**
 
-A lightweight Chromium (Chrome · Edge · Brave) Manifest V3 extension for
-developers and QA engineers who are tired of typing `John Doe` into the same
-form for the hundredth time.
+A Chromium (Chrome · Edge · Brave) Manifest V3 extension for developers and QA
+engineers, now with **file-driven input** (JSON/CSV/XLSX), **smart column→field
+mapping**, and an optional **Playwright companion** for advanced automation.
 
 [Install & Build](#-install--build) ·
+[Modes](#-modes) ·
 [How It Works](#-how-it-works) ·
+[Playwright Companion](#-playwright-companion) ·
 [Supported Fields](#-supported-fields) ·
 [Contributing](#-collaboration) ·
 [License](#-license)
@@ -18,7 +20,20 @@ form for the hundredth time.
 
 ---
 
-## 💡 Philosophy
+## 📦 What's new in v0.2.0
+
+- **Two fill modes.** *Dummy* generates realistic data (v0.1.0 behavior);
+  *File* maps values from an uploaded `.json` / `.csv` / `.xlsx` onto the form.
+- **Smart mapping.** File columns are matched to form fields by name → id →
+  label → partial match, with a live preview before you fill.
+- **React popup.** The UI is now a React app bundled with webpack.
+- **Playwright companion.** File-mode fills are relayed to a local Node.js
+  service that drives the page with Playwright for richer automation.
+- **Monorepo.** Two npm workspaces: `auto-fill-extension/` and `playwright-app/`.
+
+---
+
+## Philosophy
 
 Testing forms by hand is slow, repetitive, and error-prone. Auto Fill Form is
 built on a few simple beliefs:
@@ -41,7 +56,7 @@ built on a few simple beliefs:
   network calls. The entire fill engine is a few hundred lines of typed,
   unit-tested code you can read in one sitting.
 
-## 🤔 Why Auto Fill Form?
+## Why?
 
 | Pain | Without it | With Auto Fill Form |
 |---|---|---|
@@ -54,60 +69,119 @@ built on a few simple beliefs:
 If you build, test, or demo web forms, this removes the most tedious part of
 the loop.
 
-## 🚀 Install & Build
+## Install & Build
 
-> **Prerequisites:** Node.js ≥ 18 (or [Bun](https://bun.sh)).
+> **Prerequisites:** Node.js ≥ 18.
 
-```bash
-npm install
-npm run build        # outputs the unpacked extension to dist/
+This is an npm-workspaces monorepo:
+
+```
+.
+├── auto-fill-extension/   # the browser extension (MV3, React, webpack)
+└── playwright-app/        # the optional Playwright companion (Node.js + Express)
 ```
 
-> The repo includes a `bun.lock`; `bun install && bun run build` works too.
+```bash
+npm install                              # installs both workspaces
+npm run build                            # builds the extension → auto-fill-extension/dist/
+npm run build:all                        # builds the extension AND the companion
+```
 
 ### Load in your browser
 
 1. Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`).
 2. Enable **Developer Mode**.
-3. Click **Load unpacked** and select the generated **`dist/`** folder.
+3. Click **Load unpacked** and select **`auto-fill-extension/dist/`**.
 4. Pin the extension, open any page with a form, and click **Fill Form**.
 
-## 🛠 Development
+## 🎚 Modes
+
+The popup has two modes, switched with the toggle at the top:
+
+- **Dummy** — generates realistic, varied professional data and fills the form
+  directly (the v0.1.0 behavior). No companion or file needed.
+- **File** — upload a `.json`, `.csv`, or `.xlsx` file. The first row is mapped
+  onto the page's form fields and shown in a preview table. Clicking **Fill
+  Form** relays the mapped data to the Playwright companion (see below).
+
+## Development
 
 ```bash
-npm run dev          # vite build --watch (rebuilds dist/ on save)
-npm run test         # run unit + jsdom tests once
-npm run test:watch   # tests in watch mode
+# Extension (run from repo root)
+npm run dev   --workspace auto-fill-extension   # webpack --watch
+npm run test  --workspace auto-fill-extension   # unit + jsdom tests (Vitest)
+
+# Playwright companion
+npm start     --workspace auto-fill-playwright  # ts-node server on :3333
 ```
 
 After `npm run dev`, use the **Reload** button on the extension card in
 `chrome://extensions` to pick up changes.
 
-## ⚙️ How It Works
+## How It Works
 
 ```
-src/
-├── popup/
-│   ├── popup.html      # the toolbar popup (one button + a status line)
-│   ├── popup.ts        # queries the active tab and injects the filler
-│   └── popup.css        # minimal popup styling
-└── content/
-    ├── filler.ts       # injected IIFE: walks the DOM and fills writable fields
-    └── fillLogic.ts    # pure, unit-tested detection + data + skip rules
+auto-fill-extension/src/
+├── popup/                 # React popup
+│   ├── index.tsx          # createRoot entry
+│   ├── App.tsx            # mode + mapping + status state
+│   └── components/        # ModeToggle · FileUploader · MappingPreview · StatusBadge
+├── background/
+│   └── service-worker.ts  # relays file-mode fills to the companion
+├── content/
+│   ├── filler.ts          # injected IIFE: fills writable fields (unchanged from v0.1.0)
+│   └── fillLogic.ts       # pure, unit-tested detection + data + skip rules
+└── lib/
+    ├── parser.ts          # JSON / CSV / XLSX → ParsedData
+    ├── mapper.ts          # rule-based column → field mapping
+    └── types.ts           # shared types
 ```
 
-1. Clicking **Fill Form** runs `chrome.scripting.executeScript`, injecting the
-   bundled `filler.js` into the active tab.
-2. `filler.ts` collects every `input`, `textarea`, and `select`.
-3. For each control it builds metadata and calls `detectFieldCategory()` to
-   classify it (name, email, phone, company, address, …).
-4. A rotating generator hands out the next *distinct* professional value for
-   that category, so repeated fields differ.
-5. `shouldSkipField()` filters out anything that must not be touched (see
-   below), and `input` + `change` events are dispatched so frameworks like
-   React and Vue register the change.
+**Dummy mode** runs `chrome.scripting.executeScript`, injecting the bundled
+`content/filler.js` into the active tab. `filler.ts` collects every `input`,
+`textarea`, and `select`, classifies each via `detectFieldCategory()`, and a
+rotating generator hands out distinct professional values; `shouldSkipField()`
+protects read-only, disabled, and auto-generated fields. `input` + `change`
+events are dispatched so React/Vue register the change.
 
-### Fields that are never filled
+**File mode** parses the uploaded file (`lib/parser.ts`), scrapes the active
+tab's form fields, maps columns to fields (`lib/mapper.ts`), previews the
+result, then sends it to `service-worker.ts`, which `POST`s the mapped data to
+`http://localhost:3333/fill`.
+
+### Smart mapping rules
+
+For each form field, the first matching rule wins:
+
+1. Exact match on the field's `name` (case-insensitive)
+2. Match on the field's `id`
+3. Match on the field's `<label>` text
+4. Partial (substring) match against the field's `name`
+5. No match → the field is excluded
+
+## Playwright Companion
+
+The companion (`playwright-app/`) is a small Express service that drives a
+Playwright-controlled Chrome for advanced automation (e.g. `file` inputs via
+`setInputFiles`, custom components).
+
+```bash
+npm start --workspace auto-fill-playwright
+# → Playwright companion running on http://localhost:3333
+```
+
+It exposes a single endpoint, `POST /fill`, which accepts the mapped data and
+fills the page using a prioritized selector chain (`[name]` → `[id]` → label →
+`[aria-label]`). It launches a **persistent context** and leaves the browser
+session open after filling.
+
+> First run requires a Chrome build for Playwright: `npx playwright install chrome`.
+>
+> **Security note:** the companion listens on `localhost:3333` with no
+> authentication (by design for v0.2.0). It is intended for local development
+> only — do not expose the port to other machines.
+
+### Fields that are never filled (Dummy mode)
 
 The extension deliberately leaves these alone:
 
@@ -121,7 +195,7 @@ The extension deliberately leaves these alone:
 - **Explicit opt-out:** add `data-autofill="off"` (or `data-no-autofill`) to any
   field you want skipped.
 
-## 📋 Supported Fields
+## Supported Fields
 
 | Type / context | Example value |
 |---|---|
